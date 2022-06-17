@@ -1,0 +1,227 @@
+#import "iostream.bah"
+#import "string.bah"
+#import "flags.bah"
+
+#include "lexer.bah"
+
+fileName = "out.svg"
+
+//font size
+fontSize = 15
+fontWidth int = <float>fontSize * 0.6
+
+//colors
+defaultColor = "#dad7da"
+bgColor = "#212121"
+varColor = "#6eced0"
+fnColor = "#e9e48a"
+typeColor = "#4caf80"
+strColor = "#f88750"
+numColor = "#7fd095"
+kwColor = "#ce8ecc"
+hashColor = "grey"
+constColor = "#218fec"
+commColor = "#549b36"
+
+types = []cpstring{
+    "int", "uint", "int32", "uint32", 
+    "cpstring", "char",
+    "float", "float32",
+    "ptr"
+}
+
+svgText(x int, y int, color cpstring, s cpstring) cpstring {
+    ss = string(s)
+    ss.replace("&", "&amp;")
+    ss.replace("<", "&lt;")
+    ss.replace(">", "&gt;")
+    s = ss.str()
+    return "<text fill=\""+color+"\" font-family=\"monospace\" xml:space=\"preserve\" x=\""+intToStr(x)+"\" y=\""+intToStr(y)+"\">"+s+"</text>"
+}
+
+struct textColor {
+    pos: uint
+    l: uint
+    c: cpstring
+}
+
+struct textMarkup {
+    s: cpstring
+    offsetY: int = 0
+    offsetX: int = 5
+
+    colors: []textColor
+
+    str() cpstring {
+        buff = []char
+        r = ""
+
+        l = strlen(this.s)
+        i=0; for i < l, i++ {
+            currColor textColor* = null
+            j=0; for j < len(this.colors), j++ {
+                if this.colors[j].pos == i {
+                    currColor = &this.colors[j]
+                    break
+                }
+            }
+
+            if currColor != null {
+                if len(buff) > 0 {
+                    r += svgText(this.offsetX + fontWidth * (i - len(buff)), this.offsetY, defaultColor, arrToStr(buff))
+                    clear(buff)
+                }
+                tmp = this.s[i:i+currColor.l]
+                r += svgText(this.offsetX + i * fontWidth, this.offsetY, currColor.c, tmp)
+                i += currColor.l - 1
+                continue
+            }
+
+            buff[len(buff)] = this.s[i]
+        }
+        if len(buff) > 0 {
+            r += svgText(this.offsetX + fontWidth * (i - len(buff)), this.offsetY, defaultColor, arrToStr(buff))
+        }
+        return r
+    }
+}
+
+main(args []cpstring) int {
+    flags = flags{}
+    flags.addString("o", "Output file name.")
+    flags.addInt("size", "Font size.")
+    flags.parse(args)
+
+    if flags.isSet("size") {
+        fontSize = flags.getInt("size")
+        fontWidth = = <int>(<float>fontSize * 0.6)
+    }
+
+    if flags.isSet("o") {
+        fileName = flags.get("o")
+    }
+
+    fs = fileStream{}
+    fs.open(args[1], "r")
+    code = fs.readContent()
+    fs.close()
+
+    fs.open(fileName, "w")
+
+    //split lines
+    lines = [][]char
+    currLine = []char
+    l = strlen(code)
+    i=0; for i < l, i++ {
+        if code[i] == <char>10 {
+            lines[len(lines)] = currLine
+            currLine = []char
+            continue
+        }
+        currLine[len(currLine)] = code[i]
+    }
+    lines[len(lines)] = currLine
+
+    //generate tokens
+    tokens = lexer(code, l)
+
+    //generate markup
+    outCode = ""
+    i=0; for i < len(lines), i++ {
+        tm = textMarkup{arrToStr(lines[i]), fontSize * (i+1)}
+        j=0; for j < len(tokens), j++ {
+            if tokens[j].line == i+1 {
+                break
+            }
+        }
+        
+        if j != len(tokens) {
+            for j < len(tokens), j++ {
+                t = tokens[j]
+                if t.line > i+1 {
+                    break
+                }
+                if t.type == TOKEN_TYPE_VAR {
+                    if j+1 < len(tokens) && tokens[j+1].cont == "(" {
+                        tm.colors[len(tm.colors)] = textColor{
+                            t.linePos, strlen(t.cont), fnColor
+                        }
+                    } else {
+                        if t.cont in types {
+                            tm.colors[len(tm.colors)] = textColor{
+                                t.linePos, strlen(t.cont), typeColor
+                            }
+                        } else {
+                            if t.cont == "null" {
+                                tm.colors[len(tm.colors)] = textColor{
+                                    t.linePos, strlen(t.cont), constColor
+                                }
+                            } else {
+                                tm.colors[len(tm.colors)] = textColor{
+                                    t.linePos, strlen(t.cont), varColor
+                                }
+                            }
+                        }
+                    }
+                } else if t.type == TOKEN_TYPE_BOOL {
+                    tm.colors[len(tm.colors)] = textColor{
+                        t.linePos, strlen(t.cont), constColor
+                    }
+                } else if t.type == TOKEN_TYPE_STR && t.line == t.begLine {
+                    tm.colors[len(tm.colors)] = textColor{
+                        t.linePos, strlen(t.cont), strColor
+                    }
+                } else if t.type == TOKEN_TYPE_INT || t.type == TOKEN_TYPE_FLOAT {
+                    tm.colors[len(tm.colors)] = textColor{
+                        t.linePos, strlen(t.cont), numColor
+                    }
+                } else if t.type == TOKEN_TYPE_CAST {
+                    tm.colors[len(tm.colors)] = textColor{
+                        t.linePos+1, strlen(t.cont)-2, typeColor
+                    }
+                } else if t.type == TOKEN_TYPE_KEYWORD {
+                    if t.cont[0] == '#' {
+                        tm.colors[len(tm.colors)] = textColor{
+                            t.linePos, strlen(t.cont), hashColor
+                        }
+                    } else {
+                        tm.colors[len(tm.colors)] = textColor{
+                            t.linePos, strlen(t.cont), kwColor
+                        }
+                    }
+                }
+            }
+        }
+        j=0; for j < len(lines[i]), j++ {
+            if lines[i][j] == '/' && j+1 < len(lines[i]) && lines[i][j+1] == '/' {
+                tm.colors[len(tm.colors)] = textColor{
+                    j, len(lines[i]) - j, commColor
+                }
+            }
+        }
+        outCode += tm.str()
+    }
+
+    //calculate width
+    width = 0
+    i=0; for i < len(lines), i++ {
+        if len(lines[i]) > width {
+            width = len(lines[i])
+        }
+    }
+
+    //write svg file
+    fs.writeFile("
+    <svg xmlns=\"http://www.w3.org/2000/svg\" width=\""+intToStr(width * fontWidth + 10)+"\" height=\""+intToStr(fontSize * (len(lines)+1))+"\" stroke=\"#000\" font-size=\""+intToStr(fontSize)+"\">
+    <rect fill=\""+bgColor+"\" width=\"100%\" height=\"100%\" rx=\"7\" />
+    <g stroke=\"none\">
+            "+outCode+"
+    </g>
+</svg>
+
+    ")
+
+    fs.close()
+
+    return 0
+}

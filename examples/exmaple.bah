@@ -1,0 +1,8 @@
+#import "iostream.bah"
+
+main(args []cpstring) int {
+
+    println("I'm an example!")
+
+    return 0
+}
