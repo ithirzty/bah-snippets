@@ -94,7 +94,7 @@ main(args []cpstring) int {
 
     if flags.isSet("size") {
         fontSize = flags.getInt("size")
-        fontWidth = = <int>(<float>fontSize * 0.6)
+        fontWidth = <int>(<float>fontSize * 0.6)
     }
 
     if flags.isSet("o") {
