@@ -9,6 +9,7 @@ fileName = "out.svg"
 //font size
 fontSize = 15
 fontWidth int = <float>fontSize * 0.6
+padding = 5
 
 //colors
 defaultColor = "#dad7da"
@@ -90,6 +91,7 @@ main(args []cpstring) int {
     flags = flags{}
     flags.addString("o", "Output file name.")
     flags.addInt("size", "Font size.")
+    flags.addInt("padding", "Borders padding.")
     flags.parse(args)
 
     if flags.isSet("size") {
@@ -99,6 +101,10 @@ main(args []cpstring) int {
 
     if flags.isSet("o") {
         fileName = flags.get("o")
+    }
+
+    if flags.isSet("padding") {
+        padding = flags.getInt("padding")
     }
 
     fs = fileStream{}
@@ -128,7 +134,7 @@ main(args []cpstring) int {
     //generate markup
     outCode = ""
     i=0; for i < len(lines), i++ {
-        tm = textMarkup{arrToStr(lines[i]), fontSize * (i+1)}
+        tm = textMarkup{arrToStr(lines[i]), fontSize * (i+1) + padding, padding}
         j=0; for j < len(tokens), j++ {
             if tokens[j].line == i+1 {
                 break
@@ -212,7 +218,7 @@ main(args []cpstring) int {
 
     //write svg file
     fs.writeFile("
-    <svg xmlns=\"http://www.w3.org/2000/svg\" width=\""+intToStr(width * fontWidth + 10)+"\" height=\""+intToStr(fontSize * (len(lines)+1))+"\" stroke=\"#000\" font-size=\""+intToStr(fontSize)+"\">
+    <svg xmlns=\"http://www.w3.org/2000/svg\" width=\""+intToStr(width * fontWidth + padding * 2)+"\" height=\""+intToStr(fontSize * (len(lines)+1) + padding * 2)+"\" stroke=\"#000\" font-size=\""+intToStr(fontSize)+"\">
     <rect fill=\""+bgColor+"\" width=\"100%\" height=\"100%\" rx=\"7\" />
     <g stroke=\"none\">
             "+outCode+"
