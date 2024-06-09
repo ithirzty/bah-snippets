@@ -26,7 +26,7 @@ commColor = "#549b36"
 
 types = []str{
     "int", "uint", "int32", "uint32", 
-    "cpstring", "char",
+    "str", "char",
     "float", "float32",
     "ptr"
 }
